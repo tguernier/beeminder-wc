@@ -1,0 +1,10 @@
+# copy this file to config.yml and fill in your Beeminder API credentials and goal details
+base_dir: "/path/to/your/files"
+beeminder:
+  username: "your_beeminder_username"
+  auth_token: "your_beeminder_token"
+  goals:
+    - name: "example_goal"
+      glob: "*.md"
+    - name: "another_goal"
+      glob: "subdir/**/*.md"
