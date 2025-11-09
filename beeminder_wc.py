@@ -53,7 +53,7 @@ def get_wordcount_from_files(base_dir: str, my_glob: str) -> int:
     # Get the word count of all files matching the glob pattern
     word_count = 0
     full_path = os.path.join(base_dir, my_glob)
-    for file_path in glob.glob(full_path):
+    for file_path in glob.glob(full_path, recursive=True):
         print(f"Processing file: {file_path}")
         with open(file_path, "r") as file:
             word_count += count_words_in_markdown(file.read())
