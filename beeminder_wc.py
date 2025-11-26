@@ -1,3 +1,10 @@
+# This is a script to keep track of the word count in a set of text files
+# determined by a file glob, and to send the cumulative increase of the
+# word counts to a beeminder goal only if the word count is higher.
+#
+# This script is intended to be run as a cron task:
+# */5 * * * * cd /home/tom/code/beeminder-wc; /home/tom/.local/bin/uv run -m beeminder_wc >> beeminder-wc.log 2>&1
+
 import glob
 import os
 import re
@@ -97,3 +104,7 @@ def main(config_path: str):
             post_to_beeminder(USERNAME, AUTH_TOKEN, goal_name, difference)
         else:
             print(f"No new words to post for {goal_name}")
+
+
+if __name__ == "__main__":
+    main("config.yml")
