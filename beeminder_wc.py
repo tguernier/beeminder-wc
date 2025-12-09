@@ -4,14 +4,23 @@
 #
 # This script is intended to be run as a cron task:
 # */5 * * * * cd /home/tom/code/beeminder-wc; /home/tom/.local/bin/uv run -m beeminder_wc >> beeminder-wc.log 2>&1
+# Or with syslog logging:
+# */5 * * * * cd /home/tom/code/beeminder-wc; /home/tom/.local/bin/uv run -m beeminder_wc --syslog
 
+import argparse
 import glob
+import logging
+import logging.handlers
 import os
 import re
 from datetime import datetime
 
 import requests
 import yaml
+
+# Set up logger
+logger = logging.getLogger("beeminder_wc")
+logger.setLevel(logging.INFO)
 
 
 def get_curval_from_beeminder(username: str, auth_token: str, goal: str) -> int:
@@ -61,10 +70,10 @@ def get_wordcount_from_files(base_dir: str, my_glob: str) -> int:
     word_count = 0
     full_path = os.path.join(base_dir, my_glob)
     for file_path in glob.glob(full_path, recursive=True):
-        print(f"Processing file: {file_path}")
+        logger.debug(f"Processing file: {file_path}")
         with open(file_path, "r") as file:
             word_count += count_words_in_markdown(file.read())
-    print(f"Word count for {my_glob}: {word_count}")
+    logger.info(f"Word count for {my_glob}: {word_count}")
     return word_count
 
 
@@ -75,10 +84,13 @@ def post_to_beeminder(
     difference: int,
     comment: str = "Updated from beeminder-wc script",
 ):
-    # Send the difference to the Beeminder API
-    url = f"https://www.beeminder.com/api/v1/users/{username}/goals/{goal}/datapoints.json"
-    data = {"auth_token": auth_token, "value": difference, "comment": comment}
-    requests.post(url, data=data)
+    try:
+        # Send the difference to the Beeminder API
+        url = f"https://www.beeminder.com/api/v1/users/{username}/goals/{goal}/datapoints.json"
+        data = {"auth_token": auth_token, "value": difference, "comment": comment}
+        requests.post(url, data=data)
+    except Exception as e:
+        logger.error(f"Failed to post to Beeminder: {e}")
 
 
 def main(config_path: str):
@@ -91,20 +103,74 @@ def main(config_path: str):
     goal_curval = 0
     difference = 0
 
-    print(f"Starting beeminder-wc at {datetime.now()}")
+    logger.info(f"Starting beeminder-wc at {datetime.now()}")
     for goal in GOALS:
         goal_name = goal["name"]
         glob = goal["glob"]
-        print(f"Processing {glob} for {goal_name}")
+        logger.info(f"Processing {glob} for {goal_name}")
         goal_curval = get_curval_from_beeminder(USERNAME, AUTH_TOKEN, goal_name)
-        print(f"Current word count value from Beeminder: {goal_curval}")
+        logger.info(f"Current word count value from Beeminder: {goal_curval}")
         difference = get_wordcount_from_files(BASE_DIR, glob) - goal_curval
         if difference > 0:
-            print(f"Posting {difference} words to {goal_name}")
+            logger.info(f"Posting {difference} words to {goal_name}")
             post_to_beeminder(USERNAME, AUTH_TOKEN, goal_name, difference)
+            print(f"Posted {difference} words to {goal_name}")
         else:
-            print(f"No new words to post for {goal_name}")
+            logger.info(f"No new words to post for {goal_name}")
+
+
+def setup_syslog_logging():
+    """Set up syslog logging handler"""
+    try:
+        # Try different syslog addresses based on the platform
+        syslog_addresses = ["/dev/log", "/var/run/syslog", ("localhost", 514)]
+        syslog_handler = None
+
+        for address in syslog_addresses:
+            try:
+                syslog_handler = logging.handlers.SysLogHandler(address=address)
+                break
+            except Exception:
+                continue
+
+        if syslog_handler is None:
+            logger.error("Failed to connect to syslog")
+            return
+
+        formatter = logging.Formatter("%(name)s: %(levelname)s - %(message)s")
+        syslog_handler.setFormatter(formatter)
+        logger.addHandler(syslog_handler)
+        logger.info("Syslog logging initialized")
+    except Exception as e:
+        logger.error(f"Failed to set up syslog logging: {e}")
+
+
+def setup_stdout_logging():
+    """Set up stdout logging handler"""
+    # Only add stdout handler if no handlers exist
+    if not logger.handlers:
+        stdout_handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        stdout_handler.setFormatter(formatter)
+        logger.addHandler(stdout_handler)
+
+
+def parse_args():
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description="Beeminder word count tracker")
+    parser.add_argument("--syslog", action="store_true", help="Enable syslog logging")
+    parser.add_argument(
+        "--config", default="config.yml", help="Path to configuration file"
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    main("config.yml")
+    args = parse_args()
+
+    if args.syslog:
+        setup_syslog_logging()
+    else:
+        setup_stdout_logging()
+
+    main(args.config)
