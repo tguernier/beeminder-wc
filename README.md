@@ -26,3 +26,4 @@ The configuration for the script is sourced from the `config.yml` file. This con
 Command line options:
 - `--syslog`: Enable logging to syslog
 - `--config PATH`: Specify a custom configuration file path (default: config.yml)
+- `--count-file FILE`: Just count the words in a single file and print the result to stdout (without posting to Beeminder)
