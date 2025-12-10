@@ -44,9 +44,9 @@ def count_words_in_markdown(markdown: str) -> int:
     # More than 1 space to 4 spaces
     text = re.sub(r"[ ]{2,}", "    ", text)
     # Footnotes
-    text = re.sub(r"^\[[^]]*\][^(].*", "", text, flags=re.MULTILINE)
+    # text = re.sub(r"^\[[^]]*\][^(].*", "", text, flags=re.MULTILINE)
     # Indented blocks of code
-    text = re.sub(r"^( {4,}[^-*]).*", "", text, flags=re.MULTILINE)
+    # text = re.sub(r"^( {4,}[^-*]).*", "", text, flags=re.MULTILINE)
     # Custom header IDs
     text = re.sub(r"{#.*}", "", text)
     # Replace newlines with spaces for uniform handling
@@ -162,15 +162,21 @@ def parse_args():
     parser.add_argument(
         "--config", default="config.yml", help="Path to configuration file"
     )
+    parser.add_argument("--count-file", help="Just count the words in a file")
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
 
-    if args.syslog:
-        setup_syslog_logging()
+    if args.count_file:
+        # just count words in the file and output to stdout
+        with open(args.count_file, "r") as f:
+            print(count_words_in_markdown(f.read()))
     else:
-        setup_stdout_logging()
+        if args.syslog:
+            setup_syslog_logging()
+        else:
+            setup_stdout_logging()
 
-    main(args.config)
+        main(args.config)
