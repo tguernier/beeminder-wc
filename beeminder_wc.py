@@ -9,6 +9,7 @@
 
 import argparse
 import glob
+import json
 import logging
 import logging.handlers
 import os
@@ -93,8 +94,34 @@ def post_to_beeminder(
         logger.error(f"Failed to post to Beeminder: {e}")
 
 
+def load_config_from_env() -> dict | None:
+    username = os.environ.get("BEEMINDER_USERNAME")
+    auth_token = os.environ.get("BEEMINDER_AUTH_TOKEN")
+    goals_json = os.environ.get("BEEMINDER_GOALS")
+    if not (username and auth_token and goals_json):
+        return None
+    return {
+        "base_dir": os.environ.get("BASE_DIR", "."),
+        "beeminder": {
+            "username": username,
+            "auth_token": auth_token,
+            "goals": json.loads(goals_json),
+        },
+    }
+
+
+def load_config(config_path: str) -> dict:
+    env_config = load_config_from_env()
+    if env_config:
+        logger.info("Using configuration from environment variables")
+        return env_config
+    logger.info(f"Using configuration from {config_path}")
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
 def main(config_path: str):
-    config = yaml.safe_load(open(config_path))
+    config = load_config(config_path)
     BASE_DIR = config["base_dir"]
     USERNAME = config["beeminder"]["username"]
     AUTH_TOKEN = config["beeminder"]["auth_token"]

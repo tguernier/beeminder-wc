@@ -1,0 +1,40 @@
+# GitHub Actions workflow for beeminder-wc
+#
+# To use, copy both this file and beeminder_wc.py into your markdown files
+# repository:
+#   .github/workflows/beeminder-wc.yml  (this file)
+#   beeminder_wc.py                      (the script)
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   BEEMINDER_USERNAME   - Your Beeminder username
+#   BEEMINDER_AUTH_TOKEN  - Your Beeminder API auth token
+#
+# Configure BEEMINDER_GOALS below with your goal names and glob patterns.
+
+name: Beeminder Word Count
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  word-count:
+    runs-on: ubuntu-latest
+    env:
+      BEEMINDER_USERNAME: ${{ secrets.BEEMINDER_USERNAME }}
+      BEEMINDER_AUTH_TOKEN: ${{ secrets.BEEMINDER_AUTH_TOKEN }}
+      # Edit this JSON array with your Beeminder goal names and file glob patterns:
+      BEEMINDER_GOALS: '[{"name": "my_goal", "glob": "**/*.md"}]'
+      BASE_DIR: "."
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install requests pyyaml
+
+      - name: Run word count
+        run: python beeminder_wc.py
