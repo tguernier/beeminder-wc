@@ -66,11 +66,16 @@ def count_words_in_markdown(markdown: str) -> int:
     return len(text.split())
 
 
-def get_wordcount_from_files(base_dir: str, my_glob: str) -> int:
+def get_wordcount_from_files(base_dir: str, my_glob: str, exclude: list[str] | None = None) -> int:
     # Get the word count of all files matching the glob pattern
     word_count = 0
     full_path = os.path.join(base_dir, my_glob)
+    exclude_paths = [glob.glob(os.path.join(base_dir, p), recursive=True) for p in (exclude or [])]
+    excluded = {f for paths in exclude_paths for f in paths}
     for file_path in glob.glob(full_path, recursive=True):
+        if file_path in excluded:
+            logger.debug(f"Skipping excluded file: {file_path}")
+            continue
         logger.debug(f"Processing file: {file_path}")
         with open(file_path, "r") as file:
             word_count += count_words_in_markdown(file.read())
@@ -137,7 +142,7 @@ def main(config_path: str):
         logger.info(f"Processing {glob} for {goal_name}")
         goal_curval = get_curval_from_beeminder(USERNAME, AUTH_TOKEN, goal_name)
         logger.info(f"Current word count value from Beeminder: {goal_curval}")
-        difference = get_wordcount_from_files(BASE_DIR, glob) - goal_curval
+        difference = get_wordcount_from_files(BASE_DIR, glob, goal.get("exclude")) - goal_curval
         if difference > 0:
             logger.info(f"Posting {difference} words to {goal_name}")
             post_to_beeminder(USERNAME, AUTH_TOKEN, goal_name, difference)
